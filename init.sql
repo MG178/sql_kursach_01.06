@@ -1,42 +1,54 @@
 -- ============================================
--- CollegeHub: Единый студенческий портал колледжа
--- с QR-отметкой посещаемости
+-- CollegeHub: Инициализация базы данных
+-- для Microsoft SQL Server
 -- ============================================
 
+-- 1. Создание базы данных
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'CollegeHub')
+BEGIN
+    CREATE DATABASE CollegeHub;
+END;
+GO
+
+USE CollegeHub;
+GO
+
+-- 2. Создание таблиц
+
 CREATE TABLE roles (
-    id INT AUTO_INCREMENT,
-    name VARCHAR(50) NOT NULL UNIQUE,
+    id INT IDENTITY(1,1) NOT NULL,
+    name NVARCHAR(50) NOT NULL UNIQUE,
     CONSTRAINT pk_roles PRIMARY KEY (id)
 );
 
 CREATE TABLE groups (
-    id INT AUTO_INCREMENT,
-    name VARCHAR(50) NOT NULL,
+    id INT IDENTITY(1,1) NOT NULL,
+    name NVARCHAR(50) NOT NULL,
     course INT,
-    department VARCHAR(100),
+    department NVARCHAR(100),
     CONSTRAINT pk_groups PRIMARY KEY (id)
 );
 
 CREATE TABLE users (
-    id INT AUTO_INCREMENT,
-    full_name VARCHAR(150) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    id INT IDENTITY(1,1) NOT NULL,
+    full_name NVARCHAR(150) NOT NULL,
+    email NVARCHAR(100) NOT NULL UNIQUE,
+    password_hash NVARCHAR(255) NOT NULL,
     role_id INT NOT NULL,
     group_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT pk_users PRIMARY KEY (id),
     CONSTRAINT fk_users_role FOREIGN KEY (role_id)
         REFERENCES roles(id)
-        ON DELETE RESTRICT ON UPDATE CASCADE,
+        ON DELETE NO ACTION ON UPDATE CASCADE,
     CONSTRAINT fk_users_group FOREIGN KEY (group_id)
         REFERENCES groups(id)
         ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 CREATE TABLE subjects (
-    id INT AUTO_INCREMENT,
-    name VARCHAR(150) NOT NULL,
+    id INT IDENTITY(1,1) NOT NULL,
+    name NVARCHAR(150) NOT NULL,
     teacher_id INT NULL,
     CONSTRAINT pk_subjects PRIMARY KEY (id),
     CONSTRAINT fk_subjects_teacher FOREIGN KEY (teacher_id)
@@ -45,15 +57,17 @@ CREATE TABLE subjects (
 );
 
 CREATE TABLE schedule (
-    id INT AUTO_INCREMENT,
+    id INT IDENTITY(1,1) NOT NULL,
     group_id INT NOT NULL,
     subject_id INT NOT NULL,
     teacher_id INT NULL,
-    room VARCHAR(50),
+    room NVARCHAR(50),
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') NOT NULL,
-    lesson_type ENUM('lecture','practice','lab') DEFAULT 'lecture',
+    day_of_week NVARCHAR(10) NOT NULL
+        CONSTRAINT chk_day CHECK (day_of_week IN ('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')),
+    lesson_type NVARCHAR(10) DEFAULT 'lecture'
+        CONSTRAINT chk_lesson_type CHECK (lesson_type IN ('lecture','practice','lab')),
     CONSTRAINT pk_schedule PRIMARY KEY (id),
     CONSTRAINT fk_schedule_group FOREIGN KEY (group_id)
         REFERENCES groups(id)
@@ -67,12 +81,12 @@ CREATE TABLE schedule (
 );
 
 CREATE TABLE qr_sessions (
-    id INT AUTO_INCREMENT,
+    id INT IDENTITY(1,1) NOT NULL,
     schedule_id INT NOT NULL,
-    qr_code_data VARCHAR(255) NOT NULL UNIQUE,
-    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
+    qr_code_data NVARCHAR(255) NOT NULL UNIQUE,
+    generated_at DATETIME2 DEFAULT GETDATE(),
+    expires_at DATETIME2 NOT NULL,
+    is_active BIT DEFAULT 1,
     CONSTRAINT pk_qr_sessions PRIMARY KEY (id),
     CONSTRAINT fk_qr_schedule FOREIGN KEY (schedule_id)
         REFERENCES schedule(id)
@@ -80,11 +94,12 @@ CREATE TABLE qr_sessions (
 );
 
 CREATE TABLE attendance (
-    id INT AUTO_INCREMENT,
+    id INT IDENTITY(1,1) NOT NULL,
     user_id INT NOT NULL,
     qr_session_id INT NOT NULL,
-    scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('present','late','absent') DEFAULT 'present',
+    scanned_at DATETIME2 DEFAULT GETDATE(),
+    status NVARCHAR(10) DEFAULT 'present'
+        CONSTRAINT chk_status CHECK (status IN ('present','late','absent')),
     CONSTRAINT pk_attendance PRIMARY KEY (id),
     CONSTRAINT fk_attendance_user FOREIGN KEY (user_id)
         REFERENCES users(id)
@@ -94,3 +109,6 @@ CREATE TABLE attendance (
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT unique_attendance UNIQUE (user_id, qr_session_id)
 );
+GO
+
+PRINT 'База данных CollegeHub успешно создана и инициализирована.';
